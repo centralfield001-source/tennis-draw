@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>🎴 番号引き</title>
+  <title>ダブルス乱数表番号選択</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -96,7 +96,7 @@
         setParticipants(prev => prev.filter(p => p.name !== name));
 
       const startDraw = () => {
-        if (participants.length < 2) { setError("2人以上必要です"); return; }
+        if (participants.length < 4) { setError("4人以上必要です"); return; }
         const nums = shuffle(participants.map((_, i) => i + 1));
         setCards(nums.map(number => ({ number, flipped: false, takenBy: null })));
         setCurrentIdx(0);
@@ -150,7 +150,7 @@
               boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
             }}>
               <div style={{ fontSize: 11, letterSpacing: 4, color: C.ball, textTransform: "uppercase", marginBottom: 4 }}>Number Draw</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: C.line }}>🎴 番号引き</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.line }}>🎴 ダブルス乱数表番号選択</div>
               <div style={{ fontSize: 12, color: "#A8D5B5", marginTop: 4 }}>参加者が1枚ずつカードを引いて番号を決めます</div>
             </div>
 
@@ -211,15 +211,15 @@
                 </div>
               )}
 
-              <button onClick={startDraw} disabled={participants.length < 2} style={{
+              <button onClick={startDraw} disabled={participants.length < 4} style={{
                 width: "100%", marginTop: 16, padding: "16px", borderRadius: 14, border: "none",
-                cursor: participants.length < 2 ? "not-allowed" : "pointer",
-                background: participants.length < 2 ? C.border : `linear-gradient(135deg, ${C.ball} 0%, ${C.ballDk} 100%)`,
-                color: participants.length < 2 ? C.muted : C.dark,
+                cursor: participants.length < 4 ? "not-allowed" : "pointer",
+                background: participants.length < 4 ? C.border : `linear-gradient(135deg, ${C.ball} 0%, ${C.ballDk} 100%)`,
+                color: participants.length < 4 ? C.muted : C.dark,
                 fontWeight: 900, fontSize: 17,
-                boxShadow: participants.length >= 2 ? "0 4px 16px rgba(200,230,60,0.4)" : "none",
+                boxShadow: participants.length >= 4 ? "0 4px 16px rgba(200,230,60,0.4)" : "none",
               }}>
-                {participants.length < 2 ? `あと${2 - participants.length}人追加してください` : "🎴 カード引き開始"}
+                {participants.length < 4 ? `あと${4 - participants.length}人追加してください` : "🎴 カード引き開始"}
               </button>
             </div>
           </div>
