@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>🎴 番号引き</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #F0F7F2; font-family: 'Segoe UI', system-ui, sans-serif; }
+    @keyframes cardReveal {
+      0%   { transform: scaleX(0) scaleY(0.8); opacity: 0; }
+      60%  { transform: scaleX(1.08) scaleY(1.04); opacity: 1; }
+      100% { transform: scaleX(1) scaleY(1); opacity: 1; }
+    }
+    .reveal { animation: cardReveal 0.35s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    const C = {
+      court:   "#1A6B3C",
+      courtLt: "#2E8B57",
+      turf:    "#E8F5EE",
+      line:    "#FFFFFF",
+      ball:    "#C8E63C",
+      ballDk:  "#A0BB1A",
+      male:    "#3B82F6",
+      female:  "#EC4899",
+      dark:    "#0F2D1C",
+      muted:   "#4B7A5E",
+      card:    "#FFFFFF",
+      border:  "#C6E0CF",
+      bg:      "#F0F7F2",
+      danger:  "#EF4444",
+    };
+
+    const uid = () => Math.random().toString(36).slice(2, 8);
+
+    const shuffle = arr => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
+    const GenderBtn = ({ value, current, onSelect }) => {
+      const cfg = {
+        male:   { label: "男性", icon: "♂", color: C.male },
+        female: { label: "女性", icon: "♀", color: C.female },
+      };
+      const { label, icon, color } = cfg[value];
+      const active = current === value;
+      return (
+        <button onClick={() => onSelect(value)} style={{
+          flex: 1, padding: "9px 4px", borderRadius: 10,
+          border: `2px solid ${active ? color : C.border}`,
+          background: active ? color + "18" : C.card,
+          color: active ? color : C.muted,
+          fontWeight: 700, fontSize: 14, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+        }}>
+          <span style={{ fontSize: 16 }}>{icon}</span>{label}
+        </button>
+      );
+    };
+
+    function App() {
+      const [phase, setPhase]               = useState("setup");
+      const [nameInput, setNameInput]       = useState("");
+      const [genderInput, setGenderInput]   = useState("male");
+      const [participants, setParticipants] = useState([]);
+      const [cards, setCards]               = useState([]);
+      const [currentIdx, setCurrentIdx]     = useState(0);
+      const [lastRevealed, setLastRevealed] = useState(null);
+      const [pressedCard, setPressedCard]   = useState(null);
+      const [error, setError]               = useState("");
+
+      const addParticipant = () => {
+        const name = nameInput.trim();
+        if (!name) return;
+        if (participants.some(p => p.name === name)) { setError("同じ名前が既にいます"); return; }
+        setParticipants(prev => [...prev, { name, gender: genderInput }]);
+        setNameInput("");
+        setError("");
+      };
+
+      const removeParticipant = name =>
+        setParticipants(prev => prev.filter(p => p.name !== name));
+
+      const startDraw = () => {
+        if (participants.length < 2) { setError("2人以上必要です"); return; }
+        const nums = shuffle(participants.map((_, i) => i + 1));
+        setCards(nums.map(number => ({ number, flipped: false, takenBy: null })));
+        setCurrentIdx(0);
+        setLastRevealed(null);
+        setPhase("drawing");
+      };
+
+      const drawCard = idx => {
+        if (cards[idx].flipped || currentIdx >= participants.length) return;
+        const taker = participants[currentIdx];
+        setCards(prev => prev.map((c, i) =>
+          i === idx ? { ...c, flipped: true, takenBy: taker } : c
+        ));
+        setLastRevealed(idx);
+        const next = currentIdx + 1;
+        setCurrentIdx(next);
+        if (next >= participants.length) setTimeout(() => setPhase("results"), 700);
+      };
+
+      const reset = () => {
+        setPhase("setup");
+        setNameInput("");
+        setCards([]);
+        setCurrentIdx(0);
+        setLastRevealed(null);
+        setPressedCard(null);
+        setError("");
+      };
+
+      const goToTennisDraw = () => {
+        const sorted = [...cards]
+          .map(c => ({ ...c.takenBy, number: c.number }))
+          .sort((a, b) => a.number - b.number);
+        const playerData = sorted.map(({ name, gender, number }) => ({
+          id: uid(), name, gender, gamesPlayed: 0, byeCount: 0, drawNumber: number,
+        }));
+        localStorage.setItem('tennisPlayers', JSON.stringify(playerData));
+        window.location.href = 'tennis-draw.html';
+      };
+
+      const maleCount   = participants.filter(p => p.gender === "male").length;
+      const femaleCount = participants.filter(p => p.gender === "female").length;
+
+      // ── セットアップ画面 ────────────────────────────────────────
+      if (phase === "setup") {
+        return (
+          <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 80 }}>
+            <div style={{
+              background: `linear-gradient(135deg, ${C.court} 0%, ${C.courtLt} 100%)`,
+              padding: "30px 20px 24px", textAlign: "center",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+            }}>
+              <div style={{ fontSize: 11, letterSpacing: 4, color: C.ball, textTransform: "uppercase", marginBottom: 4 }}>Number Draw</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: C.line }}>🎴 番号引き</div>
+              <div style={{ fontSize: 12, color: "#A8D5B5", marginTop: 4 }}>参加者が1枚ずつカードを引いて番号を決めます</div>
+            </div>
+
+            <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px" }}>
+              <div style={{ background: C.card, borderRadius: 16, marginTop: 20, padding: "18px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>参加者を追加</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <GenderBtn value="male"   current={genderInput} onSelect={setGenderInput} />
+                  <GenderBtn value="female" current={genderInput} onSelect={setGenderInput} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={nameInput}
+                    onChange={e => { setNameInput(e.target.value); setError(""); }}
+                    onKeyDown={e => e.key === "Enter" && addParticipant()}
+                    placeholder="名前を入力..."
+                    style={{
+                      flex: 1, padding: "11px 14px", borderRadius: 10,
+                      border: `1.5px solid ${error ? C.danger : C.border}`,
+                      fontSize: 15, outline: "none", background: C.bg, color: C.dark,
+                    }}
+                  />
+                  <button onClick={addParticipant} style={{
+                    background: C.court, color: C.line, border: "none",
+                    borderRadius: 10, padding: "0 18px", fontSize: 22, cursor: "pointer", fontWeight: 700,
+                  }}>+</button>
+                </div>
+                {error && <div style={{ color: C.danger, fontSize: 12, marginTop: 6 }}>⚠ {error}</div>}
+              </div>
+
+              {participants.length > 0 && (
+                <div style={{ background: C.card, borderRadius: 16, marginTop: 12, padding: "16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase" }}>
+                      参加者 <span style={{ color: C.court }}>{participants.length}人</span>
+                      <span style={{ color: C.male, marginLeft: 8 }}>♂{maleCount}</span>
+                      <span style={{ color: C.female, marginLeft: 6 }}>♀{femaleCount}</span>
+                    </div>
+                    <button onClick={() => setParticipants([])} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>全削除</button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                    {participants.map(p => {
+                      const color = p.gender === "male" ? C.male : C.female;
+                      return (
+                        <div key={p.name} style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          padding: "5px 10px 5px 12px", borderRadius: 20,
+                          border: `1.5px solid ${color}40`, background: color + "10",
+                          fontSize: 13, color: C.dark, fontWeight: 600,
+                        }}>
+                          <span style={{ color, fontSize: 11 }}>{p.gender === "male" ? "♂" : "♀"}</span>
+                          {p.name}
+                          <span onClick={() => removeParticipant(p.name)} style={{ cursor: "pointer", color: C.muted, fontSize: 15, lineHeight: 1, marginLeft: 2 }}>×</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <button onClick={startDraw} disabled={participants.length < 2} style={{
+                width: "100%", marginTop: 16, padding: "16px", borderRadius: 14, border: "none",
+                cursor: participants.length < 2 ? "not-allowed" : "pointer",
+                background: participants.length < 2 ? C.border : `linear-gradient(135deg, ${C.ball} 0%, ${C.ballDk} 100%)`,
+                color: participants.length < 2 ? C.muted : C.dark,
+                fontWeight: 900, fontSize: 17,
+                boxShadow: participants.length >= 2 ? "0 4px 16px rgba(200,230,60,0.4)" : "none",
+              }}>
+                {participants.length < 2 ? `あと${2 - participants.length}人追加してください` : "🎴 カード引き開始"}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── カード引き画面 ──────────────────────────────────────────
+      if (phase === "drawing") {
+        const allDone    = currentIdx >= participants.length;
+        const current    = !allDone ? participants[currentIdx] : null;
+        const gColor     = current ? (current.gender === "male" ? C.male : C.female) : C.muted;
+
+        return (
+          <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 80 }}>
+            <div style={{
+              background: `linear-gradient(135deg, ${C.court} 0%, ${C.courtLt} 100%)`,
+              padding: "20px 16px 16px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+            }}>
+              <div style={{ maxWidth: 480, margin: "0 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button onClick={reset} style={{
+                    background: "rgba(255,255,255,0.15)", border: "none", color: C.line,
+                    borderRadius: 8, padding: "6px 12px", fontSize: 13, cursor: "pointer", fontWeight: 600,
+                  }}>← 戻る</button>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: C.ball, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>番号引き</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: C.line }}>
+                      {allDone ? "全員完了！" : `${currentIdx + 1} / ${participants.length}`}
+                    </div>
+                  </div>
+                  <div style={{ width: 60 }} />
+                </div>
+                <div style={{ marginTop: 10, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 4 }}>
+                  <div style={{
+                    height: "100%", borderRadius: 4, background: C.ball,
+                    width: `${(currentIdx / participants.length) * 100}%`,
+                    transition: "width 0.4s",
+                  }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 0" }}>
+              {!allDone && (
+                <div style={{
+                  background: C.card, borderRadius: 14, padding: "16px",
+                  marginBottom: 16, textAlign: "center",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+                  border: `2px solid ${C.ball}`,
+                }}>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>次の番</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span style={{ color: gColor, fontSize: 20, fontWeight: 700 }}>
+                      {current.gender === "male" ? "♂" : "♀"}
+                    </span>
+                    <span style={{ fontSize: 26, fontWeight: 900, color: C.dark }}>{current.name}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>カードを1枚選んでタップしてください</div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+                {cards.map((card, i) => {
+                  const isNew = i === lastRevealed;
+                  if (card.flipped) {
+                    const gc = card.takenBy.gender === "male" ? C.male : C.female;
+                    return (
+                      <div key={i} className={isNew ? "reveal" : ""} style={{
+                        width: 80, height: 110, borderRadius: 10,
+                        background: C.card,
+                        border: `2px solid ${isNew ? C.ball : C.border}`,
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center",
+                        boxShadow: isNew ? `0 4px 20px ${C.ballDk}80` : "0 1px 6px rgba(0,0,0,0.08)",
+                      }}>
+                        <div style={{ fontSize: 32, fontWeight: 900, color: C.court, lineHeight: 1 }}>{card.number}</div>
+                        <div style={{ fontSize: 11, color: gc, marginTop: 4 }}>
+                          {card.takenBy.gender === "male" ? "♂" : "♀"}
+                        </div>
+                        <div style={{ fontSize: 10, color: C.muted, marginTop: 2, fontWeight: 600, textAlign: "center", padding: "0 4px", lineHeight: 1.3 }}>
+                          {card.takenBy.name}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const pressed = pressedCard === i;
+                  return (
+                    <div key={i}
+                      onClick={() => drawCard(i)}
+                      onMouseDown={() => !allDone && setPressedCard(i)}
+                      onMouseUp={() => setPressedCard(null)}
+                      onMouseLeave={() => setPressedCard(null)}
+                      onTouchStart={() => !allDone && setPressedCard(i)}
+                      onTouchEnd={() => setPressedCard(null)}
+                      style={{
+                        width: 80, height: 110, borderRadius: 10,
+                        background: `linear-gradient(135deg, ${C.court} 0%, ${C.courtLt} 100%)`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: allDone ? "default" : "pointer",
+                        userSelect: "none",
+                        boxShadow: pressed ? "0 1px 4px rgba(0,0,0,0.15)" : "0 4px 14px rgba(0,0,0,0.2)",
+                        fontSize: 30, color: C.ball, fontWeight: 900,
+                        border: `2px solid ${C.courtLt}`,
+                        transform: pressed ? "scale(0.92)" : "scale(1)",
+                        transition: "transform 0.1s, box-shadow 0.1s",
+                        opacity: allDone ? 0.4 : 1,
+                      }}
+                    >?</div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 結果画面 ───────────────────────────────────────────────
+      const sorted = [...cards]
+        .map(c => ({ name: c.takenBy.name, gender: c.takenBy.gender, number: c.number }))
+        .sort((a, b) => a.number - b.number);
+
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 80 }}>
+          <div style={{
+            background: `linear-gradient(135deg, ${C.court} 0%, ${C.courtLt} 100%)`,
+            padding: "30px 20px 24px", textAlign: "center",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ fontSize: 11, letterSpacing: 4, color: C.ball, textTransform: "uppercase", marginBottom: 4 }}>Results</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: C.line }}>🎉 番号確定！</div>
+            <div style={{ fontSize: 12, color: "#A8D5B5", marginTop: 4 }}>全員の番号が決まりました</div>
+          </div>
+
+          <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 0" }}>
+            <div style={{ background: C.card, borderRadius: 16, padding: "8px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)", marginBottom: 14 }}>
+              {sorted.map(({ name, gender, number }, idx) => {
+                const gc = gender === "male" ? C.male : C.female;
+                return (
+                  <div key={number} style={{
+                    display: "flex", alignItems: "center", gap: 14, padding: "12px 4px",
+                    borderBottom: idx < sorted.length - 1 ? `1px solid ${C.border}` : "none",
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
+                      background: `linear-gradient(135deg, ${C.court} 0%, ${C.courtLt} 100%)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 20, fontWeight: 900, color: C.line,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                    }}>{number}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: gc, fontSize: 13, fontWeight: 700 }}>
+                        {gender === "male" ? "♂" : "♀"}
+                      </span>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: C.dark }}>{name}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button onClick={goToTennisDraw} style={{
+              width: "100%", marginBottom: 10, padding: "16px", borderRadius: 14, border: "none",
+              background: `linear-gradient(135deg, ${C.ball} 0%, ${C.ballDk} 100%)`,
+              color: C.dark, fontWeight: 900, fontSize: 16, cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(200,230,60,0.4)",
+            }}>🎾 テニスドローへ →</button>
+
+            <button onClick={reset} style={{
+              width: "100%", padding: "14px", borderRadius: 12,
+              border: `2px solid ${C.border}`, background: C.card,
+              color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer",
+            }}>🔄 もう一度</button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

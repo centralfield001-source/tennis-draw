@@ -175,10 +175,18 @@
       const color = player.gender === "male" ? C.male : C.female;
       return (
         <div style={{
-          display: "flex", alignItems: "center", gap: 5, padding: "5px 10px 5px 12px",
+          display: "flex", alignItems: "center", gap: 5, padding: "5px 10px 5px 8px",
           borderRadius: 20, border: `1.5px solid ${color}40`, background: color + "10",
           fontSize: 13, color: C.dark, fontWeight: 600,
         }}>
+          {player.drawNumber != null && (
+            <span style={{
+              minWidth: 20, height: 20, borderRadius: "50%", padding: "0 3px",
+              background: C.court, color: C.line,
+              fontSize: 10, fontWeight: 900, lineHeight: "20px", textAlign: "center",
+              flexShrink: 0,
+            }}>{player.drawNumber}</span>
+          )}
           <span style={{ color, fontSize: 11 }}>{player.gender === "male" ? "♂" : "♀"}</span>
           {player.name}
           {onRemove && (
@@ -205,6 +213,13 @@
               fontSize: 13, fontWeight: 700, color: C.dark,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
             }}>
+              {p.drawNumber != null && (
+                <span style={{
+                  minWidth: 18, height: 18, borderRadius: "50%", padding: "0 2px",
+                  background: C.court, color: C.line,
+                  fontSize: 9, fontWeight: 900, lineHeight: "18px", textAlign: "center", flexShrink: 0,
+                }}>{p.drawNumber}</span>
+              )}
               <span style={{ color: p.gender === "male" ? C.male : C.female, fontSize: 11 }}>
                 {p.gender === "male" ? "♂" : "♀"}
               </span>
@@ -282,10 +297,16 @@
       const [screen, setScreen]               = useState("setup");
       const [nameInput, setNameInput]         = useState("");
       const [genderInput, setGenderInput]     = useState("male");
-      const [players, setPlayers]             = useState([]);
+      const [players, setPlayers]             = useState(() => {
+        try {
+          const saved = localStorage.getItem('tennisPlayers');
+          if (saved) { localStorage.removeItem('tennisPlayers'); return JSON.parse(saved); }
+        } catch {}
+        return [];
+      });
       const [error, setError]                 = useState("");
       const [settingCourts, setSettingCourts] = useState(1);
-      const [settingRounds, setSettingRounds] = useState(8);
+      const [settingRounds, setSettingRounds] = useState(20);
       const [mixedPriority, setMixedPriority] = useState(true); // ミックス優先ON/OFF
       const [rounds, setRounds]               = useState([]);
       const [currentRound, setCurrentRound]   = useState(0);
@@ -540,9 +561,19 @@
                 <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 1, textTransform: "uppercase" }}>😴 お休み</span>
                 {round.byePlayers.map(p => (
                   <span key={p.id} style={{
-                    padding: "3px 10px", borderRadius: 20, background: C.bye + "20",
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    padding: "3px 10px 3px 6px", borderRadius: 20, background: C.bye + "20",
                     border: `1px solid ${C.bye}40`, fontSize: 13, fontWeight: 600, color: C.dark,
-                  }}>{p.name}</span>
+                  }}>
+                    {p.drawNumber != null && (
+                      <span style={{
+                        minWidth: 18, height: 18, borderRadius: "50%", padding: "0 2px",
+                        background: C.court, color: C.line,
+                        fontSize: 9, fontWeight: 900, lineHeight: "18px", textAlign: "center", flexShrink: 0,
+                      }}>{p.drawNumber}</span>
+                    )}
+                    {p.name}
+                  </span>
                 ))}
               </div>
             )}
