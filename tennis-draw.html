@@ -373,7 +373,7 @@
       const playerMap   = Object.fromEntries(players.map(p => [p.id, p]));
       const maleCount   = players.filter(p => p.gender === "male").length;
       const femaleCount = players.filter(p => p.gender === "female").length;
-      const fromSimple  = players.length > 0 && players.every(p => p.anonymous);
+      const fromDraw    = players.length > 0 && players.every(p => p.anonymous || p.imported);
 
       const mixedRatio = (() => {
         let total = 0, mixed = 0;
@@ -406,7 +406,7 @@
             <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px" }}>
 
               {/* プレイヤー追加 (簡易版からの遷移時は非表示) */}
-              {!fromSimple && (
+              {!fromDraw && (
                 <div style={{ background: C.card, borderRadius: 16, marginTop: 20, padding: "18px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>プレイヤー追加</div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -443,10 +443,10 @@
                       <span style={{ color: C.male, marginLeft: 8 }}>男性 {maleCount}</span>
                       <span style={{ color: C.female, marginLeft: 6 }}>女性 {femaleCount}</span>
                     </div>
-                    {!fromSimple && <button onClick={() => setPlayers([])} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>全削除</button>}
+                    {!fromDraw && <button onClick={() => setPlayers([])} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>全削除</button>}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                    {players.map(p => <PlayerChip key={p.id} player={p} onRemove={fromSimple ? null : removePlayer} />)}
+                    {players.map(p => <PlayerChip key={p.id} player={p} onRemove={fromDraw ? null : removePlayer} />)}
                   </div>
                 </div>
               )}
