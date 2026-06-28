@@ -138,10 +138,10 @@
 
     const GenderBtn = ({ value, current, onSelect }) => {
       const cfg = {
-        male:   { label: "男性", icon: "♂", color: C.male },
-        female: { label: "女性", icon: "♀", color: C.female },
+        male:   { label: "男性", color: C.male },
+        female: { label: "女性", color: C.female },
       };
-      const { label, icon, color } = cfg[value];
+      const { label, color } = cfg[value];
       const active = current === value;
       return (
         <button onClick={() => onSelect(value)} style={{
@@ -152,7 +152,7 @@
           fontWeight: 700, fontSize: 14, cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
         }}>
-          <span style={{ fontSize: 16 }}>{icon}</span>{label}
+          {label}
         </button>
       );
     };
@@ -187,8 +187,7 @@
               flexShrink: 0,
             }}>{player.drawNumber}</span>
           )}
-          <span style={{ color, fontSize: 11 }}>{player.gender === "male" ? "♂" : "♀"}</span>
-          {player.name}
+          {!player.anonymous && player.name}
           {onRemove && (
             <span onClick={() => onRemove(player.id)}
               style={{ cursor: "pointer", color: C.muted, fontSize: 15, lineHeight: 1, marginLeft: 2 }}>×</span>
@@ -215,15 +214,12 @@
             }}>
               {p.drawNumber != null && (
                 <span style={{
-                  minWidth: 24, height: 24, borderRadius: "50%", padding: "0 3px",
+                  minWidth: 40, height: 40, borderRadius: "50%", padding: "0 4px",
                   background: C.court, color: C.line,
-                  fontSize: 12, fontWeight: 900, lineHeight: "24px", textAlign: "center", flexShrink: 0,
+                  fontSize: 20, fontWeight: 900, lineHeight: "40px", textAlign: "center", flexShrink: 0,
                 }}>{p.drawNumber}</span>
               )}
-              <span style={{ color: p.gender === "male" ? C.male : C.female, fontSize: 16 }}>
-                {p.gender === "male" ? "♂" : "♀"}
-              </span>
-              {p.name}
+              {!p.anonymous && p.name}
             </div>
           ))}
           {isMixed && <div style={{ fontSize: 10, color: C.mixed, fontWeight: 700, marginTop: 2 }}>MIX ✓</div>}
@@ -265,7 +261,7 @@
           </div>
           <div style={{ padding: "14px 14px", display: "flex", alignItems: "center", gap: 10 }}>
             <TeamBlock ids={match.t1} playerMap={playerMap} label="チーム A" labelColor={C.court} />
-            <div style={{ fontWeight: 900, color: C.muted, fontSize: 13, flexShrink: 0 }}>VS</div>
+            <div style={{ fontWeight: 900, color: C.court, fontSize: 22, flexShrink: 0 }}>VS</div>
             <TeamBlock ids={match.t2} playerMap={playerMap} label="チーム B" labelColor="#E74C3C" />
           </div>
         </div>
@@ -377,6 +373,7 @@
       const playerMap   = Object.fromEntries(players.map(p => [p.id, p]));
       const maleCount   = players.filter(p => p.gender === "male").length;
       const femaleCount = players.filter(p => p.gender === "female").length;
+      const fromSimple  = players.length > 0 && players.every(p => p.anonymous);
 
       const mixedRatio = (() => {
         let total = 0, mixed = 0;
@@ -408,32 +405,34 @@
 
             <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px" }}>
 
-              {/* プレイヤー追加 */}
-              <div style={{ background: C.card, borderRadius: 16, marginTop: 20, padding: "18px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>プレイヤー追加</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <GenderBtn value="male"   current={genderInput} onSelect={setGenderInput} />
-                  <GenderBtn value="female" current={genderInput} onSelect={setGenderInput} />
+              {/* プレイヤー追加 (簡易版からの遷移時は非表示) */}
+              {!fromSimple && (
+                <div style={{ background: C.card, borderRadius: 16, marginTop: 20, padding: "18px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>プレイヤー追加</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <GenderBtn value="male"   current={genderInput} onSelect={setGenderInput} />
+                    <GenderBtn value="female" current={genderInput} onSelect={setGenderInput} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={nameInput}
+                      onChange={e => { setNameInput(e.target.value); setError(""); }}
+                      onKeyDown={e => e.key === "Enter" && addPlayer()}
+                      placeholder="名前を入力..."
+                      style={{
+                        flex: 1, padding: "11px 14px", borderRadius: 10,
+                        border: `1.5px solid ${error ? C.danger : C.border}`,
+                        fontSize: 15, outline: "none", background: C.bg, color: C.dark,
+                      }}
+                    />
+                    <button onClick={addPlayer} style={{
+                      background: C.court, color: C.line, border: "none",
+                      borderRadius: 10, padding: "0 18px", fontSize: 22, cursor: "pointer", fontWeight: 700,
+                    }}>+</button>
+                  </div>
+                  {error && <div style={{ color: C.danger, fontSize: 12, marginTop: 6 }}>⚠ {error}</div>}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    value={nameInput}
-                    onChange={e => { setNameInput(e.target.value); setError(""); }}
-                    onKeyDown={e => e.key === "Enter" && addPlayer()}
-                    placeholder="名前を入力..."
-                    style={{
-                      flex: 1, padding: "11px 14px", borderRadius: 10,
-                      border: `1.5px solid ${error ? C.danger : C.border}`,
-                      fontSize: 15, outline: "none", background: C.bg, color: C.dark,
-                    }}
-                  />
-                  <button onClick={addPlayer} style={{
-                    background: C.court, color: C.line, border: "none",
-                    borderRadius: 10, padding: "0 18px", fontSize: 22, cursor: "pointer", fontWeight: 700,
-                  }}>+</button>
-                </div>
-                {error && <div style={{ color: C.danger, fontSize: 12, marginTop: 6 }}>⚠ {error}</div>}
-              </div>
+              )}
 
               {/* 参加者リスト */}
               {players.length > 0 && (
@@ -441,13 +440,13 @@
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 2, textTransform: "uppercase" }}>
                       参加者 <span style={{ color: C.court }}>{players.length}人</span>
-                      <span style={{ color: C.male, marginLeft: 8 }}>♂{maleCount}</span>
-                      <span style={{ color: C.female, marginLeft: 6 }}>♀{femaleCount}</span>
+                      <span style={{ color: C.male, marginLeft: 8 }}>男性 {maleCount}</span>
+                      <span style={{ color: C.female, marginLeft: 6 }}>女性 {femaleCount}</span>
                     </div>
-                    <button onClick={() => setPlayers([])} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>全削除</button>
+                    {!fromSimple && <button onClick={() => setPlayers([])} style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer" }}>全削除</button>}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                    {players.map(p => <PlayerChip key={p.id} player={p} onRemove={removePlayer} />)}
+                    {players.map(p => <PlayerChip key={p.id} player={p} onRemove={fromSimple ? null : removePlayer} />)}
                   </div>
                 </div>
               )}
@@ -567,12 +566,12 @@
                   }}>
                     {p.drawNumber != null && (
                       <span style={{
-                        minWidth: 18, height: 18, borderRadius: "50%", padding: "0 2px",
+                        minWidth: 26, height: 26, borderRadius: "50%", padding: "0 3px",
                         background: C.court, color: C.line,
-                        fontSize: 9, fontWeight: 900, lineHeight: "18px", textAlign: "center", flexShrink: 0,
+                        fontSize: 13, fontWeight: 900, lineHeight: "26px", textAlign: "center", flexShrink: 0,
                       }}>{p.drawNumber}</span>
                     )}
-                    {p.name}
+                    {!p.anonymous && p.name}
                   </span>
                 ))}
               </div>

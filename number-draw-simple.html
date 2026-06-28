@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>番号引き（簡易版）</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: #eef2f7;
+      min-height: 100vh;
+    }
+    @keyframes cardReveal {
+      0%   { transform: scale(0.55) rotateZ(-8deg); opacity: 0; }
+      65%  { transform: scale(1.1) rotateZ(2deg);   opacity: 1; }
+      100% { transform: scale(1)   rotateZ(0deg);   opacity: 1; }
+    }
+    .reveal { animation: cardReveal 0.4s ease forwards; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const M  = '#4a90e2';   // 男性色
+const F  = '#e2527a';   // 女性色
+const MBG = '#e8f2fd';
+const FBG = '#fde8ef';
+const WHITE = '#ffffff';
+const DARK  = '#1a202c';
+const MUTED = '#718096';
+const BG    = '#eef2f7';
+const GREEN = '#38a169';
+
+function uid() { return Math.random().toString(36).slice(2); }
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+
+/* ---- 数値入力コンポーネント ---- */
+function CountInput({ label, color, bg, value, onChange }) {
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 16 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <button
+          onClick={() => onChange(v => Math.max(0, v - 1))}
+          style={{
+            width: 60, height: 60, borderRadius: 16,
+            border: `2.5px solid ${color}`, background: bg,
+            color, fontSize: 30, fontWeight: 700,
+            cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+          }}
+        >−</button>
+        <span style={{ fontSize: 52, fontWeight: 900, color, minWidth: 80, textAlign: 'center', lineHeight: 1 }}>
+          {value}
+        </span>
+        <button
+          onClick={() => onChange(v => v + 1)}
+          style={{
+            width: 60, height: 60, borderRadius: 16,
+            border: `2.5px solid ${color}`, background: bg,
+            color, fontSize: 30, fontWeight: 700,
+            cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+          }}
+        >＋</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- カードコンポーネント ---- */
+function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onPressEnd }) {
+  const color = gender === 'male' ? M : F;
+
+  const isPressed = pressed === card.id;
+  const commonPress = {
+    onMouseDown: () => onPressStart(card.id),
+    onMouseUp:   () => { onPressEnd(); onFlip(card.id); },
+    onMouseLeave: () => onPressEnd(),
+    onTouchStart: e => { e.preventDefault(); onPressStart(card.id); },
+    onTouchEnd:   e => { e.preventDefault(); onPressEnd(); onFlip(card.id); },
+  };
+
+  if (card.flipped) {
+    return (
+      <div
+        {...commonPress}
+        className={isLastRevealed ? 'reveal' : ''}
+        style={{
+          width: 108, height: 150, borderRadius: 16,
+          background: WHITE, border: `3.5px solid ${color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: isPressed ? `inset 0 3px 8px rgba(0,0,0,0.2)` : `0 4px 16px ${color}50`,
+          transform: isPressed ? 'scale(0.88)' : 'scale(1)',
+          transition: 'transform 0.12s, box-shadow 0.12s',
+          cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <span style={{ fontSize: 60, fontWeight: 900, color, lineHeight: 1 }}>{card.number}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      {...commonPress}
+      style={{
+        width: 108, height: 150, borderRadius: 16,
+        background: `linear-gradient(150deg, ${color}ff, ${color}99)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer',
+        boxShadow: isPressed
+          ? `inset 0 3px 8px rgba(0,0,0,0.35)`
+          : `0 8px 20px ${color}60`,
+        transform: isPressed ? 'scale(0.88)' : 'scale(1)',
+        transition: 'transform 0.12s, box-shadow 0.12s',
+        userSelect: 'none', WebkitUserSelect: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <span style={{ fontSize: 44, fontWeight: 900, color: WHITE, lineHeight: 1 }}>?</span>
+    </div>
+  );
+}
+
+/* ---- メインアプリ ---- */
+function App() {
+  const [phase, setPhase]             = useState('setup');
+  const [maleCount, setMaleCount]     = useState(4);
+  const [femaleCount, setFemaleCount] = useState(4);
+  const [maleCards, setMaleCards]     = useState([]);
+  const [femaleCards, setFemaleCards] = useState([]);
+  const [lastRevealed, setLastRevealed] = useState(null);
+  const [pressed, setPressed]         = useState(null);
+
+  const total       = maleCount + femaleCount;
+  const mFlipped    = maleCards.filter(c => c.flipped).length;
+  const fFlipped    = femaleCards.filter(c => c.flipped).length;
+  const allFlipped  = (maleCards.length + femaleCards.length) > 0
+    && mFlipped === maleCards.length
+    && fFlipped === femaleCards.length;
+
+  const startDrawing = () => {
+    if (total < 4) return;
+    const nums   = shuffle([...Array(total)].map((_, i) => i + 1));
+    const mNums  = shuffle(nums.slice(0, maleCount));
+    const fNums  = shuffle(nums.slice(maleCount));
+    setMaleCards(mNums.map(n => ({ id: uid(), number: n, flipped: false })));
+    setFemaleCards(fNums.map(n => ({ id: uid(), number: n, flipped: false })));
+    setLastRevealed(null);
+    setPhase('drawing');
+  };
+
+  const flipCard = (gender, cardId) => {
+    const set = gender === 'male' ? setMaleCards : setFemaleCards;
+    set(prev => prev.map(c => c.id === cardId ? { ...c, flipped: !c.flipped } : c));
+    setLastRevealed(cardId);
+  };
+
+  const goToTennisDraw = () => {
+    const males   = [...maleCards]
+      .sort((a, b) => a.number - b.number)
+      .map((c, i) => ({ id: uid(), name: `男性${i + 1}`, gender: 'male',   gamesPlayed: 0, byeCount: 0, drawNumber: c.number, anonymous: true }));
+    const females = [...femaleCards]
+      .sort((a, b) => a.number - b.number)
+      .map((c, i) => ({ id: uid(), name: `女性${i + 1}`, gender: 'female', gamesPlayed: 0, byeCount: 0, drawNumber: c.number, anonymous: true }));
+    const players = [...males, ...females].sort((a, b) => a.drawNumber - b.drawNumber);
+    localStorage.setItem('tennisPlayers', JSON.stringify(players));
+    window.location.href = 'tennis-draw.html';
+  };
+
+  const reset = () => {
+    setPhase('setup');
+    setMaleCards([]);
+    setFemaleCards([]);
+    setLastRevealed(null);
+  };
+
+  /* ---- セットアップ画面 ---- */
+  if (phase === 'setup') {
+    return (
+      <div style={{
+        minHeight: '100vh', background: BG,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '36px 20px',
+      }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: DARK, marginBottom: 36 }}>
+          🎴 番号引き（簡易版）
+        </h1>
+
+        <div style={{
+          background: WHITE, borderRadius: 22, padding: '36px 32px',
+          boxShadow: '0 4px 28px rgba(0,0,0,0.09)',
+          width: '100%', maxWidth: 380,
+        }}>
+          <CountInput label="男性人数" color={M} bg={MBG} value={maleCount}   onChange={setMaleCount} />
+          <CountInput label="女性人数" color={F} bg={FBG} value={femaleCount} onChange={setFemaleCount} />
+
+          <div style={{ textAlign: 'center', marginBottom: 20, fontSize: 18, color: MUTED }}>
+            合計 <strong style={{ color: DARK, fontSize: 26 }}>{total}</strong> 人
+          </div>
+
+          {total < 4 && (
+            <div style={{ textAlign: 'center', marginBottom: 16, fontSize: 16, color: '#e53e3e', fontWeight: 600 }}>
+              合計4人以上必要です
+            </div>
+          )}
+
+          <button
+            onClick={startDrawing}
+            disabled={total < 4}
+            style={{
+              width: '100%', padding: '20px 0', borderRadius: 16, border: 'none',
+              background: total < 4 ? '#e2e8f0' : `linear-gradient(135deg, ${M}, ${F})`,
+              color: total < 4 ? MUTED : WHITE,
+              fontSize: 22, fontWeight: 900,
+              cursor: total < 4 ? 'not-allowed' : 'pointer',
+              boxShadow: total < 4 ? 'none' : '0 4px 18px rgba(0,0,0,0.22)',
+              transition: 'all 0.2s',
+            }}
+          >
+            {total < 4 ? `あと${4 - total}人追加` : '🃏 カードを配る'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- カードセクション ---- */
+  const CardSection = ({ cards, gender, flipped }) => {
+    const color  = gender === 'male' ? M   : F;
+    const bg     = gender === 'male' ? MBG : FBG;
+    const label  = gender === 'male' ? '男性' : '女性';
+    if (cards.length === 0) return null;
+    return (
+      <div style={{
+        background: WHITE, borderRadius: 20, padding: '20px 16px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
+        marginBottom: 20, border: `2px solid ${color}28`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 22, fontWeight: 900, color }}>{label}</span>
+          <span style={{
+            marginLeft: 'auto', fontSize: 16, color: MUTED,
+            background: bg, padding: '4px 16px', borderRadius: 20, fontWeight: 700,
+          }}>
+            {flipped} / {cards.length}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+          {cards.map(card => (
+            <Card
+              key={card.id}
+              card={card}
+              gender={gender}
+              isLastRevealed={lastRevealed === card.id}
+              pressed={pressed}
+              onFlip={id => flipCard(gender, id)}
+              onPressStart={setPressed}
+              onPressEnd={() => setPressed(null)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /* ---- カード選択画面 ---- */
+  return (
+    <div style={{ minHeight: '100vh', background: BG, padding: '16px 12px' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 900, color: DARK, textAlign: 'center', marginBottom: 20 }}>
+          🎴 番号引き（簡易版）
+        </h1>
+
+        <CardSection cards={maleCards}   gender="male"   flipped={mFlipped} />
+        <CardSection cards={femaleCards} gender="female" flipped={fFlipped} />
+
+        {allFlipped ? (
+          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <button onClick={reset} style={{
+              flex: 1, padding: 18, borderRadius: 16,
+              border: `2px solid ${MUTED}`, background: WHITE,
+              color: MUTED, fontSize: 17, fontWeight: 700, cursor: 'pointer',
+            }}>やり直す</button>
+            <button onClick={goToTennisDraw} style={{
+              flex: 2, padding: 18, borderRadius: 16,
+              border: 'none', background: GREEN, color: WHITE,
+              fontSize: 18, fontWeight: 900, cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(56,161,105,0.38)',
+            }}>🎾 乱数表へ進む</button>
+          </div>
+        ) : (
+          <button onClick={reset} style={{
+            width: '100%', padding: 16, borderRadius: 16, marginTop: 4,
+            border: `2px solid ${MUTED}`, background: WHITE,
+            color: MUTED, fontSize: 17, fontWeight: 700, cursor: 'pointer',
+          }}>最初からやり直す</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
