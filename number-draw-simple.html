@@ -80,8 +80,11 @@ function CountInput({ label, color, bg, value, onChange }) {
 }
 
 /* ---- カードコンポーネント ---- */
-function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onPressEnd }) {
-  const color = gender === 'male' ? M : F;
+function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onPressEnd, cw, ch }) {
+  const color   = gender === 'male' ? M : F;
+  const radius  = Math.round(cw * 0.148);
+  const numSize = Math.round(cw * 0.556);
+  const qSize   = Math.round(cw * 0.407);
 
   const isPressed = pressed === card.id;
   const commonPress = {
@@ -98,7 +101,7 @@ function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onP
         {...commonPress}
         className={isLastRevealed ? 'reveal' : ''}
         style={{
-          width: 108, height: 150, borderRadius: 16,
+          width: cw, height: ch, borderRadius: radius,
           background: WHITE, border: `3.5px solid ${color}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: isPressed ? `inset 0 3px 8px rgba(0,0,0,0.2)` : `0 4px 16px ${color}50`,
@@ -108,7 +111,7 @@ function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onP
           WebkitTapHighlightColor: 'transparent',
         }}
       >
-        <span style={{ fontSize: 60, fontWeight: 900, color, lineHeight: 1 }}>{card.number}</span>
+        <span style={{ fontSize: numSize, fontWeight: 900, color, lineHeight: 1 }}>{card.number}</span>
       </div>
     );
   }
@@ -117,7 +120,7 @@ function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onP
     <div
       {...commonPress}
       style={{
-        width: 108, height: 150, borderRadius: 16,
+        width: cw, height: ch, borderRadius: radius,
         background: `linear-gradient(150deg, ${color}ff, ${color}99)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer',
@@ -130,7 +133,7 @@ function Card({ card, gender, isLastRevealed, pressed, onFlip, onPressStart, onP
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      <span style={{ fontSize: 44, fontWeight: 900, color: WHITE, lineHeight: 1 }}>?</span>
+      <span style={{ fontSize: qSize, fontWeight: 900, color: WHITE, lineHeight: 1 }}>?</span>
     </div>
   );
 }
@@ -238,28 +241,45 @@ function App() {
     );
   }
 
+  /* ---- カードサイズ計算（画面に収まるよう動的に算出） ---- */
+  const cardSize = (() => {
+    const n = Math.max(maleCards.length, femaleCards.length, 1);
+    // 幅制約: 最大カード数を1行に並べたときの幅
+    const containerW = Math.min(window.innerWidth - 24, 560) - 32;
+    const cwByWidth  = Math.floor((containerW - (n - 1) * 12) / n);
+    // 高さ制約: 2セクション＋UIが画面縦に収まるよう逆算
+    // UI概算 = h1(42) + 上padding(16) + セクションheader×2(80) + セクションpadding×2(80) + ボタン(54) + gap(20)
+    const uiH        = 292;
+    const chByHeight = Math.floor((window.innerHeight - uiH) / 2);
+    const cwByHeight = Math.round(chByHeight * 108 / 150);
+    const cw = Math.max(Math.min(cwByWidth, cwByHeight, 108), 56);
+    const ch = Math.round(cw * 150 / 108);
+    return { cw, ch };
+  })();
+
   /* ---- カードセクション ---- */
   const CardSection = ({ cards, gender, flipped }) => {
     const color  = gender === 'male' ? M   : F;
     const bg     = gender === 'male' ? MBG : FBG;
     const label  = gender === 'male' ? '男性' : '女性';
     if (cards.length === 0) return null;
+    const { cw, ch } = cardSize;
     return (
       <div style={{
-        background: WHITE, borderRadius: 20, padding: '20px 16px',
+        background: WHITE, borderRadius: 20, padding: '16px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
-        marginBottom: 20, border: `2px solid ${color}28`,
+        marginBottom: 12, border: `2px solid ${color}28`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
-          <span style={{ fontSize: 22, fontWeight: 900, color }}>{label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 18, fontWeight: 900, color }}>{label}</span>
           <span style={{
-            marginLeft: 'auto', fontSize: 16, color: MUTED,
-            background: bg, padding: '4px 16px', borderRadius: 20, fontWeight: 700,
+            marginLeft: 'auto', fontSize: 14, color: MUTED,
+            background: bg, padding: '3px 12px', borderRadius: 20, fontWeight: 700,
           }}>
             {flipped} / {cards.length}
           </span>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
           {cards.map(card => (
             <Card
               key={card.id}
@@ -270,6 +290,8 @@ function App() {
               onFlip={id => flipCard(gender, id)}
               onPressStart={setPressed}
               onPressEnd={() => setPressed(null)}
+              cw={cw}
+              ch={ch}
             />
           ))}
         </div>
@@ -279,9 +301,9 @@ function App() {
 
   /* ---- カード選択画面 ---- */
   return (
-    <div style={{ minHeight: '100vh', background: BG, padding: '16px 12px' }}>
+    <div style={{ minHeight: '100vh', background: BG, padding: '12px' }}>
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: DARK, textAlign: 'center', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 900, color: DARK, textAlign: 'center', marginBottom: 12 }}>
           🎴 番号引き（簡易版）
         </h1>
 
