@@ -327,24 +327,46 @@
         const ph = {}, mh = {}, byeGroupHistory = {};
         const newRounds = [];
         let statPlayers = players.map(p => ({ ...p, gamesPlayed: 0, byeCount: 0 }));
+        const blockSize = effectiveCourts * 4;
 
-        for (let r = 0; r < settingRounds; r++) {
-          const round = buildRound(statPlayers, effectiveCourts, ph, mh, mixedPriority, byeGroupHistory);
-          if (!round) break;
-          newRounds.push({ ...round, index: r });
+        // 指定プールから試合を80試行で構築
+        const buildMatchesFromPool = (pool, byePlayers) => {
+          const pm = Object.fromEntries(statPlayers.map(p => [p.id, p]));
+          let best = null, bestScore = Infinity;
+          for (let t = 0; t < 80; t++) {
+            const shuffled = shuffle(pool);
+            const matches = []; let score = 0;
+            for (let i = 0; i < shuffled.length; i += 4) {
+              const [a, b, c, d] = shuffled.slice(i, i + 4).map(p => p.id);
+              const opts = [
+                { t1: [a, b], t2: [c, d] },
+                { t1: [a, c], t2: [b, d] },
+                { t1: [a, d], t2: [b, c] },
+              ];
+              let bestOpt = opts[0], bestOptS = Infinity;
+              for (const opt of opts) {
+                const s = scorePairing(opt.t1, opt.t2, pm, ph, mh, mixedPriority);
+                if (s < bestOptS) { bestOptS = s; bestOpt = opt; }
+              }
+              score += bestOptS;
+              matches.push({ ...bestOpt, key: matchKey(bestOpt.t1, bestOpt.t2), id: uid() });
+            }
+            if (score < bestScore) { bestScore = score; best = { matches, byePlayers }; }
+          }
+          return best;
+        };
 
+        // ラウンド統計を更新
+        const updateStats = (round) => {
           for (const m of round.matches) {
             ph[pairKey(m.t1[0], m.t1[1])] = (ph[pairKey(m.t1[0], m.t1[1])] || 0) + 1;
             ph[pairKey(m.t2[0], m.t2[1])] = (ph[pairKey(m.t2[0], m.t2[1])] || 0) + 1;
             mh[m.key] = (mh[m.key] || 0) + 1;
           }
-
-          // お休み組み合わせ履歴を更新
           if (round.byePlayers.length > 0) {
             const gKey = round.byePlayers.map(p => p.id).sort().join(",");
             byeGroupHistory[gKey] = (byeGroupHistory[gKey] || 0) + 1;
           }
-
           const playedIds = new Set(round.matches.flatMap(m => [...m.t1, ...m.t2]));
           const byeIds    = new Set(round.byePlayers.map(p => p.id));
           statPlayers = statPlayers.map(p => ({
@@ -352,6 +374,57 @@
             gamesPlayed: (p.gamesPlayed || 0) + (playedIds.has(p.id) ? 1 : 0),
             byeCount:    (p.byeCount    || 0) + (byeIds.has(p.id)    ? 1 : 0),
           }));
+        };
+
+        let roundIdx = 0;
+
+        // フェーズ1: drawNumberがある場合は番号順の初期ラウンド
+        if (statPlayers.every(p => p.drawNumber != null)) {
+          const sortedByNum = [...statPlayers].sort((a, b) => a.drawNumber - b.drawNumber);
+          for (let offset = 0; offset < sortedByNum.length && roundIdx < settingRounds; offset += blockSize) {
+            const block    = sortedByNum.slice(offset, offset + blockSize);
+            const blockIds = new Set(block.map(p => p.id));
+            const others   = statPlayers.filter(p => !blockIds.has(p.id));
+
+            let pool, byePlayers;
+            if (block.length === blockSize) {
+              // 丁度 blockSize 人のブロック: そのまま全員プレイ
+              pool = block;
+              byePlayers = others;
+            } else {
+              // 端数ブロック: 番号持ち全員 + byeの多い人から補充
+              const needed = blockSize - block.length;
+              const maxBye = others.length > 0 ? Math.max(...others.map(p => p.byeCount || 0)) : 0;
+              const weighted = others.map(p => ({ ...p, weight: maxBye - (p.byeCount || 0) + 1 }));
+              const picked = [];
+              const wPool = [...weighted];
+              for (let i = 0; i < Math.min(needed, wPool.length); i++) {
+                const totalW = wPool.reduce((s, p) => s + p.weight, 0);
+                let r = Math.random() * totalW;
+                let chosen = wPool[wPool.length - 1];
+                for (const p of wPool) { r -= p.weight; if (r <= 0) { chosen = p; break; } }
+                picked.push(chosen);
+                wPool.splice(wPool.indexOf(chosen), 1);
+              }
+              pool = [...block, ...picked];
+              const pickedIds = new Set(picked.map(p => p.id));
+              byePlayers = others.filter(p => !pickedIds.has(p.id));
+            }
+
+            const round = buildMatchesFromPool(pool, byePlayers);
+            if (!round) break;
+            newRounds.push({ ...round, index: roundIdx });
+            updateStats(round);
+            roundIdx++;
+          }
+        }
+
+        // フェーズ2: 通常ランダムラウンド
+        for (let r = roundIdx; r < settingRounds; r++) {
+          const round = buildRound(statPlayers, effectiveCourts, ph, mh, mixedPriority, byeGroupHistory);
+          if (!round) break;
+          newRounds.push({ ...round, index: r });
+          updateStats(round);
         }
 
         setRounds(newRounds);
