@@ -20,6 +20,10 @@
       100% { transform: scale(1)   rotateZ(0deg);   opacity: 1; }
     }
     .reveal { animation: cardReveal 0.4s ease forwards; }
+    .card-screen {
+      height: 100vh;
+      height: 100dvh;
+    }
   </style>
 </head>
 <body>
@@ -250,8 +254,8 @@ function App() {
     // 幅制約
     const containerW = Math.min(window.innerWidth - 24, 560);
     const cwByWidth  = Math.floor((containerW - (nPerRow - 1) * 10) / nPerRow);
-    // 高さ制約: padding(20) + ラベル×numSec(26*numSec) + ボタン(46) + gap(8*(numSec+1))
-    const uiH       = 20 + 26 * numSec + 46 + 8 * (numSec + 1);
+    // 高さ制約: padding(20) + ボタン(46) + gap(8*(numSec+1))
+    const uiH       = 20 + 46 + 8 * (numSec + 1);
     const secH      = (window.innerHeight - uiH) / numSec;
     const chByHeight = Math.floor((secH - (nRows - 1) * 10) / nRows);
     const cwByHeight = Math.round(chByHeight * 108 / 150);
@@ -261,51 +265,39 @@ function App() {
   })();
 
   /* ---- カードセクション（外枠なし） ---- */
-  const CardSection = ({ cards, gender, flipped }) => {
+  const CardSection = ({ cards, gender }) => {
     if (cards.length === 0) return null;
-    const color = gender === 'male' ? M   : F;
-    const bg    = gender === 'male' ? MBG : FBG;
-    const label = gender === 'male' ? '男性' : '女性';
     const { cw, ch } = cardSize;
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: 2 }}>
-          <span style={{ fontSize: 15, fontWeight: 900, color }}>{label}</span>
-          <span style={{
-            marginLeft: 8, fontSize: 12, fontWeight: 700, color: MUTED,
-            background: bg, padding: '2px 9px', borderRadius: 12,
-          }}>{flipped} / {cards.length}</span>
-        </div>
-        <div style={{
-          flex: 1, display: 'flex', flexWrap: 'wrap',
-          gap: 10, justifyContent: 'center', alignContent: 'center', minHeight: 0,
-        }}>
-          {cards.map(card => (
-            <Card
-              key={card.id} card={card} gender={gender}
-              isLastRevealed={lastRevealed === card.id}
-              pressed={pressed}
-              onFlip={id => flipCard(gender, id)}
-              onPressStart={setPressed}
-              onPressEnd={() => setPressed(null)}
-              cw={cw} ch={ch}
-            />
-          ))}
-        </div>
+      <div style={{
+        flex: 1, display: 'flex', flexWrap: 'wrap',
+        gap: 10, justifyContent: 'center', alignContent: 'center', minHeight: 0,
+      }}>
+        {cards.map(card => (
+          <Card
+            key={card.id} card={card} gender={gender}
+            isLastRevealed={lastRevealed === card.id}
+            pressed={pressed}
+            onFlip={id => flipCard(gender, id)}
+            onPressStart={setPressed}
+            onPressEnd={() => setPressed(null)}
+            cw={cw} ch={ch}
+          />
+        ))}
       </div>
     );
   };
 
   /* ---- カード選択画面 ---- */
   return (
-    <div style={{
-      height: '100vh', background: BG,
+    <div className="card-screen" style={{
+      background: BG,
       padding: '10px 12px',
       display: 'flex', flexDirection: 'column', gap: 8,
       overflow: 'hidden',
     }}>
-      <CardSection cards={maleCards}   gender="male"   flipped={mFlipped} />
-      <CardSection cards={femaleCards} gender="female" flipped={fFlipped} />
+      <CardSection cards={maleCards}   gender="male" />
+      <CardSection cards={femaleCards} gender="female" />
 
       {allFlipped ? (
         <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
