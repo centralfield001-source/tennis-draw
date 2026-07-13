@@ -386,13 +386,18 @@
             const blockIds = new Set(block.map(p => p.id));
             const others   = statPlayers.filter(p => !blockIds.has(p.id));
 
-            let pool, byePlayers;
+            let round;
             if (block.length === blockSize) {
-              // 丁度 blockSize 人のブロック: そのまま全員プレイ
-              pool = block;
-              byePlayers = others;
+              // 完全ブロック: 番号順固定ペアリング (1&2 vs 3&4, 5&6 vs 7&8, ...)
+              const matches = [];
+              for (let i = 0; i < block.length; i += 4) {
+                const [a, b, c, d] = block.slice(i, i + 4).map(p => p.id);
+                const t1 = [a, b], t2 = [c, d];
+                matches.push({ t1, t2, key: matchKey(t1, t2), id: uid() });
+              }
+              round = { matches, byePlayers: others };
             } else {
-              // 端数ブロック: 番号持ち全員 + byeの多い人から補充
+              // 端数ブロック: 番号持ち全員 + byeの多い人から補充してランダム
               const needed = blockSize - block.length;
               const maxBye = others.length > 0 ? Math.max(...others.map(p => p.byeCount || 0)) : 0;
               const weighted = others.map(p => ({ ...p, weight: maxBye - (p.byeCount || 0) + 1 }));
@@ -406,12 +411,12 @@
                 picked.push(chosen);
                 wPool.splice(wPool.indexOf(chosen), 1);
               }
-              pool = [...block, ...picked];
+              const pool = [...block, ...picked];
               const pickedIds = new Set(picked.map(p => p.id));
-              byePlayers = others.filter(p => !pickedIds.has(p.id));
+              const byePlayers = others.filter(p => !pickedIds.has(p.id));
+              round = buildMatchesFromPool(pool, byePlayers);
             }
 
-            const round = buildMatchesFromPool(pool, byePlayers);
             if (!round) break;
             newRounds.push({ ...round, index: roundIdx });
             updateStats(round);
