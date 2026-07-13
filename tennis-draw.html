@@ -388,12 +388,23 @@
 
             let round;
             if (block.length === blockSize) {
-              // 完全ブロック: 番号順固定ペアリング (1&2 vs 3&4, 5&6 vs 7&8, ...)
+              // 完全ブロック: ミックス優先ONなら混合チーム数が最大の組み合わせを選択
+              const genderMap = Object.fromEntries(statPlayers.map(p => [p.id, p.gender]));
+              const mixScore = ({ t1, t2 }) =>
+                (genderMap[t1[0]] !== genderMap[t1[1]] ? 0 : 1) +
+                (genderMap[t2[0]] !== genderMap[t2[1]] ? 0 : 1);
               const matches = [];
               for (let i = 0; i < block.length; i += 4) {
                 const [a, b, c, d] = block.slice(i, i + 4).map(p => p.id);
-                const t1 = [a, b], t2 = [c, d];
-                matches.push({ t1, t2, key: matchKey(t1, t2), id: uid() });
+                const candidates = [
+                  { t1: [a, b], t2: [c, d] },
+                  { t1: [a, c], t2: [b, d] },
+                  { t1: [a, d], t2: [b, c] },
+                ];
+                const chosen = mixedPriority
+                  ? candidates.reduce((best, c) => mixScore(c) < mixScore(best) ? c : best, candidates[0])
+                  : candidates[0];
+                matches.push({ ...chosen, key: matchKey(chosen.t1, chosen.t2), id: uid() });
               }
               round = { matches, byePlayers: others };
             } else {
