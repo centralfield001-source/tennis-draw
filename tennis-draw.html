@@ -417,7 +417,8 @@
               const weighted = others.map(p => ({ ...p, weight: maxBye - (p.byeCount || 0) + 1 }));
               const picked = [];
               const wPool = [...weighted];
-              for (let i = 0; i < Math.min(needed, wPool.length); i++) {
+              const pickCount = Math.min(needed, wPool.length);
+              for (let i = 0; i < pickCount; i++) {
                 const totalW = wPool.reduce((s, p) => s + p.weight, 0);
                 let r = Math.random() * totalW;
                 let chosen = wPool[wPool.length - 1];
