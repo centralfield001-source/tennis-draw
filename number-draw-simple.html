@@ -303,19 +303,12 @@ function App() {
       <CardSection cards={femaleCards} gender="female" />
 
       {allFlipped && (
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          <button onClick={reset} style={{
-            flex: 1, padding: '12px 0', borderRadius: 14,
-            border: `2px solid ${MUTED}`, background: WHITE,
-            color: MUTED, fontSize: 16, fontWeight: 700, cursor: 'pointer',
-          }}>やり直す</button>
-          <button onClick={goToTennisDraw} style={{
-            flex: 2, padding: '12px 0', borderRadius: 14,
-            border: 'none', background: GREEN, color: WHITE,
-            fontSize: 17, fontWeight: 900, cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(56,161,105,0.38)',
-          }}>🎾 乱数表へ進む</button>
-        </div>
+        <button onClick={goToTennisDraw} style={{
+          flexShrink: 0, padding: '12px 0', borderRadius: 14,
+          border: 'none', background: GREEN, color: WHITE,
+          fontSize: 17, fontWeight: 900, cursor: 'pointer',
+          boxShadow: '0 4px 16px rgba(56,161,105,0.38)',
+        }}>🎾 乱数表へ進む</button>
       )}
     </div>
   );
