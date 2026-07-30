@@ -348,22 +348,7 @@
                     );
                   }
 
-                  // 取得済み＋裏向き
-                  if (card.takenBy !== null) {
-                    return (
-                      <div key={i} onClick={() => drawCard(i)} style={{
-                        width: cw, height: ch, borderRadius: borderR,
-                        background: `linear-gradient(135deg, ${C.court}66 0%, ${C.courtLt}66 100%)`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        cursor: "pointer",
-                        fontSize: Math.round(qSize * 0.6), color: C.ball + "BB", fontWeight: 900,
-                        border: `2px solid ${C.courtLt}66`,
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                      }}>✓</div>
-                    );
-                  }
-
-                  // 未取得
+                  // 未取得 or 取得済み裏向き
                   const pressed = pressedCard === i;
                   return (
                     <div key={i}
