@@ -65,17 +65,24 @@
     }
 
     // byeGroupHistory: お休み組み合わせの履歴 { groupKey: count }
-    function buildRound(players, courts, ph, mh, mixedPriority, byeGroupHistory) {
+    // prevByeIds: 前回お休みだったプレイヤーのID集合（次回は必ず出場させる）
+    function buildRound(players, courts, ph, mh, mixedPriority, byeGroupHistory, prevByeIds = new Set()) {
       const n        = players.length;
       const playing  = courts * 4;
       const byeCount = n - playing;
 
-      // ── お休み選出: 加重ランダム ──────────────────────────────
-      // 同じお休み組み合わせを避けるため、複数候補を試して最良を選ぶ
+      // ── お休み選出 ─────────────────────────────────────────────
+      // 前回休んだ人は必ず出場させる（お休み候補から強制除外）
       let byePlayers = [];
       if (byeCount > 0) {
-        const maxBye = Math.max(...players.map(p => p.byeCount || 0));
-        const weighted = players.map(p => ({
+        const byeCandidates = prevByeIds.size > 0
+          ? players.filter(p => !prevByeIds.has(p.id))
+          : players;
+        // 候補がbyeCount人以上いない場合は全員を候補にフォールバック
+        const candidatePool = byeCandidates.length >= byeCount ? byeCandidates : players;
+
+        const maxBye = Math.max(...candidatePool.map(p => p.byeCount || 0));
+        const weighted = candidatePool.map(p => ({
           ...p,
           weight: maxBye - (p.byeCount || 0) + 1,
         }));
@@ -380,6 +387,7 @@
         };
 
         let roundIdx = 0;
+        let prevByeIds = new Set();
 
         // フェーズ1: drawNumberがある場合は番号順の初期ラウンド
         if (statPlayers.every(p => p.drawNumber != null)) {
@@ -412,12 +420,16 @@
               round = { matches, byePlayers: others };
             } else {
               // 端数ブロック: 番号持ち全員 + byeの多い人から補充してランダム
+              // 前回休んだ人（prevByeIds）は優先して補充対象とする
               const needed = blockSize - block.length;
-              const maxBye = others.length > 0 ? Math.max(...others.map(p => p.byeCount || 0)) : 0;
-              const weighted = others.map(p => ({ ...p, weight: maxBye - (p.byeCount || 0) + 1 }));
-              const picked = [];
+              const prevByeCandidates = others.filter(p => prevByeIds.has(p.id));
+              const nonPrevBye = others.filter(p => !prevByeIds.has(p.id));
+              const maxBye = nonPrevBye.length > 0 ? Math.max(...nonPrevBye.map(p => p.byeCount || 0)) : 0;
+              const weighted = nonPrevBye.map(p => ({ ...p, weight: maxBye - (p.byeCount || 0) + 1 }));
+              // まず前回休んだ人を優先補充
+              const picked = [...prevByeCandidates.slice(0, needed)];
               const wPool = [...weighted];
-              const pickCount = Math.min(needed, wPool.length);
+              const pickCount = Math.min(needed - picked.length, wPool.length);
               for (let i = 0; i < pickCount; i++) {
                 const totalW = wPool.reduce((s, p) => s + p.weight, 0);
                 let r = Math.random() * totalW;
@@ -435,16 +447,18 @@
             if (!round) break;
             newRounds.push({ ...round, index: roundIdx });
             updateStats(round);
+            prevByeIds = new Set(round.byePlayers.map(p => p.id));
             roundIdx++;
           }
         }
 
-        // フェーズ2: 通常ランダムラウンド
+        // フェーズ2: 通常ランダムラウンド（前回のbyeIdsを引き継ぐ）
         for (let r = roundIdx; r < settingRounds; r++) {
-          const round = buildRound(statPlayers, effectiveCourts, ph, mh, mixedPriority, byeGroupHistory);
+          const round = buildRound(statPlayers, effectiveCourts, ph, mh, mixedPriority, byeGroupHistory, prevByeIds);
           if (!round) break;
           newRounds.push({ ...round, index: r });
           updateStats(round);
+          prevByeIds = new Set(round.byePlayers.map(p => p.id));
         }
 
         setRounds(newRounds);
