@@ -75,32 +75,52 @@
       // 前回休んだ人は必ず出場させる（お休み候補から強制除外）
       let byePlayers = [];
       if (byeCount > 0) {
-        const byeCandidates = prevByeIds.size > 0
-          ? players.filter(p => !prevByeIds.has(p.id))
-          : players;
-        // 候補がbyeCountより多い場合のみ強制除外を適用（ぴったりの場合は全員候補に戻す）
-        const candidatePool = byeCandidates.length > byeCount ? byeCandidates : players;
+        const prevByeArr    = players.filter(p => prevByeIds.has(p.id));
+        const nonPrevByeArr = players.filter(p => !prevByeIds.has(p.id));
 
-        const maxBye = Math.max(...candidatePool.map(p => p.byeCount || 0));
-        const weighted = candidatePool.map(p => ({
-          ...p,
-          weight: maxBye - (p.byeCount || 0) + 1,
-        }));
+        // 非連続優先: 前回お休み者を除いた候補がbyeCountより多ければ全枠をそこから選出（0連続）
+        // 候補がぴったりor不足の場合は最大1人の連続お休みを許容し残りを前回お休み者から補充
+        let fromNonPrevBye, fromPrevBye;
+        if (prevByeIds.size === 0 || nonPrevByeArr.length > byeCount) {
+          fromNonPrevBye = byeCount;
+          fromPrevBye    = 0;
+        } else {
+          fromNonPrevBye = Math.min(nonPrevByeArr.length, byeCount - 1);
+          fromPrevBye    = byeCount - fromNonPrevBye;
+        }
+
+        const poolA = prevByeIds.size === 0 ? players : nonPrevByeArr;
+        const poolB = prevByeArr;
+
+        const makeWeighted = pool => {
+          const maxW = pool.length > 0 ? Math.max(...pool.map(p => p.byeCount || 0)) : 0;
+          return pool.map(p => ({ ...p, weight: maxW - (p.byeCount || 0) + 1 }));
+        };
+        const pickWeighted = (weighted, count) => {
+          const pool2 = [...weighted];
+          const result = [];
+          for (let i = 0; i < count && pool2.length > 0; i++) {
+            const totalW = pool2.reduce((s, p) => s + p.weight, 0);
+            let r = Math.random() * totalW;
+            let picked = pool2[pool2.length - 1];
+            for (const p of pool2) { r -= p.weight; if (r <= 0) { picked = p; break; } }
+            result.push(picked);
+            pool2.splice(pool2.indexOf(picked), 1);
+          }
+          return result;
+        };
+
+        const weightedA = makeWeighted(poolA);
+        const weightedB = makeWeighted(poolB);
 
         let bestByeGroup = null;
         let bestByeScore = Infinity;
 
         for (let t = 0; t < 30; t++) {
-          const pool2 = [...weighted];
-          const candidate = [];
-          for (let i = 0; i < byeCount; i++) {
-            const totalW = pool2.reduce((s, p) => s + p.weight, 0);
-            let r = Math.random() * totalW;
-            let picked = pool2[pool2.length - 1];
-            for (const p of pool2) { r -= p.weight; if (r <= 0) { picked = p; break; } }
-            candidate.push(picked);
-            pool2.splice(pool2.indexOf(picked), 1);
-          }
+          const candidate = [
+            ...pickWeighted(weightedA, fromNonPrevBye),
+            ...pickWeighted(weightedB, fromPrevBye),
+          ];
           const gKey = candidate.map(p => p.id).sort().join(",");
           const score = byeGroupHistory[gKey] || 0;
           if (score < bestByeScore) { bestByeScore = score; bestByeGroup = candidate; }
