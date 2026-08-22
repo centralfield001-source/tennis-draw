@@ -78,8 +78,8 @@
         const byeCandidates = prevByeIds.size > 0
           ? players.filter(p => !prevByeIds.has(p.id))
           : players;
-        // 候補がbyeCount人以上いない場合は全員を候補にフォールバック
-        const candidatePool = byeCandidates.length >= byeCount ? byeCandidates : players;
+        // 候補がbyeCountより多い場合のみ強制除外を適用（ぴったりの場合は全員候補に戻す）
+        const candidatePool = byeCandidates.length > byeCount ? byeCandidates : players;
 
         const maxBye = Math.max(...candidatePool.map(p => p.byeCount || 0));
         const weighted = candidatePool.map(p => ({
