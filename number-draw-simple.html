@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="app-promo.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -244,6 +245,13 @@ function App() {
             {total < 4 ? `あと${4 - total}人追加` : '🃏 カードを配る'}
           </button>
         </div>
+
+        {/* Android アプリ版の案内（app-promo.js） */}
+        {window.AppPromo && (
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            <window.AppPromo />
+          </div>
+        )}
       </div>
     );
   }

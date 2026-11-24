@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="app-promo.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #F0F7F2; font-family: 'Segoe UI', system-ui, sans-serif; }
@@ -231,6 +232,9 @@
               }}>
                 {participants.length < 4 ? `あと${4 - participants.length}人追加してください` : "🎴 カード引き開始"}
               </button>
+
+              {/* Android アプリ版の案内（app-promo.js） */}
+              {window.AppPromo && <window.AppPromo />}
             </div>
           </div>
         );
